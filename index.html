@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <head>
+    <title>Torrent Downloader Dashboard</title>
+    <link
+      rel="stylesheet"
+      href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css"
+    />
+    <style>
+      body {
+        background-color: #121212;
+        color: #fff;
+      }
+      span {
+        white-space: nowrap; /* Prevent text from wrapping */
+        overflow: hidden; /* Hide any overflowing content */
+        text-overflow: ellipsis; /* Display an ellipsis (...) for overflowed text */
+      }
+      .action-button {
+        border: none;
+        background: none;
+        cursor: pointer;
+        transition: transform 0.3s ease;
+      }
+      .action-button:hover {
+        transform: scale(1.3);
+      }
+      .torrent-details {
+        color: #999;
+        font-size: 12px;
+        font-weight: bold;
+      }
+      .card {
+        border-radius: 5px;
+        border-color: #999;
+      }
+      .card-header {
+        background-color: #212121;
+        color: #fff;
+        background-image: linear-gradient(to right, #5d9cec, #bb9eff);
+        background-size: 100% 200%;
+        transition: background-position 0.3s ease-in-out;
+        border-radius: 5px;
+      }
+      .card-body {
+        background-color: #212121;
+        border-bottom-left-radius: 5px;
+        border-bottom-right-radius: 5px;
+      }
+      .list-group-item {
+        background-color: #212121;
+        border-color: #999;
+        border-radius: 5px;
+      }
+      .list-group-item span {
+        font-weight: bold;
+      }
+      .floating-buttons {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .floating-button {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        width: 70px;
+        height: 70px;
+        border-radius: 50%;
+        color: #fff;
+        font-size: 16px;
+        font-weight: bold;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+        background: linear-gradient(135deg, #ff3d6e, #0954f2);
+        transition: transform 0.3s ease;
+        overflow: hidden;
+      }
+      .floating-button i {
+        margin-bottom: 5px;
+      }
+      .floating-button .percentage {
+        font-size: 12px;
+        font-weight: bold;
+        text-align: center;
+        z-index: 1;
+      }
+      .floating-button:hover {
+        transform: scale(1.1);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="floating-buttons">
+      <div class="floating-button cpu">
+        <i class="fas fa-microchip"></i>
+        <span class="percentage" id="cpu">NaN%</span>
+      </div>
+      <div class="floating-button memory">
+        <i class="fas fa-memory"></i>
+        <span class="percentage" id="mem">NaN%</span>
+      </div>
+      <div class="floating-button disk">
+        <i class="fas fa-hdd"></i>
+        <span class="percentage" id="disk">NaN%</span>
+      </div>
+    </div>
+    <div class="container mt-4">
+      <h1>Torrent Downloader Dashboard</h1>
+      <div class="row mt-4">
+        <div class="col-md-6 mb-5">
+          <div class="card">
+            <div class="card-header">
+              <i class="fas fa-plus-circle"></i> Add Torrent
+            </div>
+            <div class="card-body">
+              <div>
+                <div class="form-group">
+                  <label for="magnet">Torrent Link:</label>
+                  <input
+                    type="text"
+                    class="form-control"
+                    id="magnet"
+                    placeholder="Enter torrent link"
+                    style="color: #fff; background-color: #212121"
+                    required
+                  />
+                </div>
+                <button class="btn btn-primary" id="addBtn">Add Torrent</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-6 mb-5">
+          <div class="card">
+            <div class="card-header">
+              <i class="fas fa-download"></i> Downloading Status
+            </div>
+            <div class="card-body">
+              <ul class="list-group" id="torrents"></ul>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="row">
+        <div class="col-md-12">
+          <div class="card">
+            <div class="card-header">
+              <i class="fas fa-file-download"></i> Downloaded Files
+            </div>
+            <div class="card-body">
+              <ul class="list-group" id="files"></ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script>
+      $(document).ready(function () {
+        $(".action-button").hover(function () {
+          $(this).find("i").toggleClass("animated-icon");
+        });
+      });
+
+      $("#addBtn").click(function () {
+        var magnet = $("#magnet").val();
+        $.ajax({
+          url: "/api/add",
+          type: "POST",
+          data: { magnet: magnet },
+          success: function (data) {
+            console.log(data);
+            alert("Torrent added successfully");
+          },
+          error: function (err) {
+            alert(err);
+          },
+        });
+      });
+
+      setInterval(function () {
+        $.ajax({
+          url: "/api/stats",
+          type: "GET",
+          success: function (data) {
+            console.log(data);
+
+            var torrents = data.Torrents || [];
+            var files = data.Files || [];
+
+            $("#torrents").html("");
+            torrents.forEach((e) => {
+              var li = `<li class="list-group-item d-flex justify-content-between align-items-center">
+            <div>
+              <span>${e.Name}</span>
+              <div class="torrent-details">
+                Status: ${e.Status}, ${e.Current}/${e.Total}, ${
+                e.Speed || "0MB"
+              }/s, ${e.ETA || "0s"}
+              </div>
+            </div>
+            <div>
+              <button class="action-button" onclick="removeDownload('${e.ID}')">
+                <i class="fas fa-times text-danger"></i>
+              </button>
+            </div>
+          </li>`;
+              $("#torrents").append(li);
+            });
+
+            $("#files").html("");
+            files.forEach((e) => {
+              var li = `<li class="list-group-item d-flex justify-content-between align-items-center mb-2">
+          <span class="mr-3">${e.Name}</span>`;
+              if (e.Type == "file") {
+                li += `<div><button class="action-button" onclick="deleteFile('${e.Name}')">
+                  <i class="fas fa-trash-alt text-danger"></i>
+          </button>
+          <a class="action-button" href="/d/${e.Name}">
+            <i class="fas fa-download text-success"></i>
+          </a></div>`;
+              } else if (e.Type == "folder") {
+                li += `<span class="spinner-border spinner-border-sm text-light" role="status" aria-hidden="true"></span>`;
+              } else if (e.Type == "zip") {
+                li += `<button class="action-button" onclick="cancelZip('${e.ID}')">
+            <i class="fas fa-times text-danger"></i>
+          </button>`;
+              }
+              li += `</li>`;
+              $("#files").append(li);
+            });
+          },
+          error: function (xhr, status, error) {
+            alert("Error: " + error); // Modified the error handling
+          },
+        });
+      }, 3000);
+
+      function removeDownload(id) {
+        $.ajax({
+          url: "/api/remove",
+          type: "POST",
+          data: { id: id },
+          success: function (data) {
+            console.log(JSON.stringify(data));
+            alert("Torrent removed successfully");
+          },
+          error: function (err) {
+            alert(err);
+          },
+        });
+      }
+
+      function cancelZip(id) {
+        $.ajax({
+          url: "/api/cancelZip",
+          type: "POST",
+          data: { id: id },
+          success: function (data) {
+            console.log(JSON.stringify(data));
+            alert("Zip removed successfully");
+          },
+          error: function (err) {
+            alert(err);
+          },
+        });
+      }
+
+      function deleteFile(name) {
+        $.ajax({
+          url: "/api/deleteFile",
+          type: "POST",
+          data: { name: name },
+          success: function (data) {
+            console.log(JSON.stringify(data));
+            alert("File deleted successfully");
+          },
+          error: function (err) {
+            alert(err);
+          },
+        });
+      }
+    </script>
+  </body>
+</html>
