@@ -14,12 +14,15 @@ import (
 var (
 	ses  *torrent.Session
 	zips []*ZipProcess
+	trackers []string
 )
 
 func init() {
 	conf := torrent.DefaultConfig
 	conf.DataDir = "./downloads"
 	ses, _ = torrent.NewSession(conf)
+
+	trackers, _ = getTrackers()
 
 	os.Mkdir("downloads", 0755)
 }
@@ -71,6 +74,9 @@ func main() {
 		tor, _ := ses.AddURI(magnet, &torrent.AddTorrentOptions{
 			StopAfterDownload: true,
 		})
+		for _, tracker := range trackers {
+			tor.AddTracker(tracker)
+		}
 		c.JSON(http.StatusOK, tor)
 	})
 

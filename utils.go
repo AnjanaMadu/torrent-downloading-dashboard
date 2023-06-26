@@ -4,8 +4,10 @@ import (
 	"archive/zip"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 func humanBytes(size int64) string {
@@ -90,4 +92,34 @@ func ZipDirectory(inputDir, outputZIP string, ps *ZipProcess) error {
 
 	ps.Status = "done"
 	return nil
+}
+
+func getTrackers() ([]string, error) {
+	resp, err := http.Get("https://raw.githubusercontent.com/ngosang/trackerslist/master/trackers_best.txt")
+	if err != nil {
+		return []string{}, err
+	}
+	defer resp.Body.Close()
+
+	var trackers []string
+	body, _ := io.ReadAll(resp.Body)
+	for _, tracker := range strings.Split(string(body), "\n\n") {
+		if tracker != "" {
+			trackers = append(trackers, strings.TrimSpace(tracker))
+		}
+	}
+
+	resp, err = http.Get("https://raw.githubusercontent.com/ngosang/trackerslist/master/trackers_best_ip.txt")
+	if err != nil {
+		return []string{}, err
+	}
+	defer resp.Body.Close()
+
+	body, _ = io.ReadAll(resp.Body)
+	for _, tracker := range strings.Split(string(body), "\n\n") {
+		if tracker != "" {
+			trackers = append(trackers, strings.TrimSpace(tracker))
+		}
+	}
+	return trackers, nil
 }
